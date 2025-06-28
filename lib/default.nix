@@ -10,20 +10,26 @@
     namespace,
     dir,
     enableCheck ? enableCheckModule,
-  }:
+  }: {
+    # HACK: `pkgs` aren't passed down if they aren't explicitely declared here
+    pkgs,
+    config,
+    ...
+  } @ inputs:
     lib.pipe dir [
       lib.filesystem.listFilesRecursive
-      (builtins.filter (e: builtins.baseNameOf e == "default.nix"))
+      (builtins.filter (p: builtins.baseNameOf p == "default.nix"))
       (builtins.map (
-        e: {config, ...} @ inputs: let
-          namespaceModule = [namespace] ++ (lib.path.subpath.components (builtins.dirOf (lib.path.removePrefix dir e)));
-          configNamespace = lib.attrByPath [namespace] {} config;
-          configModule = lib.attrByPath namespaceModule {} config;
-          configs = {inherit configNamespace configModule;};
+        p: let
+          namespaceModule = [namespace] ++ (lib.path.subpath.components (builtins.dirOf (lib.path.removePrefix dir p)));
+          configs = {
+            configNamespace = lib.attrByPath [namespace] {} config;
+            configModule = lib.attrByPath namespaceModule {} config;
+          };
           mkModule = {
             description,
             opts ? {},
-            cfg ? _: {},
+            cfg ? {},
           }: {
             options =
               lib.setAttrByPath
@@ -32,17 +38,31 @@
             config =
               lib.mkIf
               (enableCheck configs)
-              (cfg configs);
+              (
+                if builtins.isFunction cfg
+                then cfg configs
+                else cfg
+              );
           };
         in
-          lib.pipe e [
+          lib.pipe p [
             import
             (m:
               if builtins.isFunction m
-              then m inputs
+              then (m inputs)
               else m)
             mkModule
           ]
       ))
+      (m: {
+        options = lib.pipe m [
+          (builtins.map (m: m.options))
+          (builtins.foldl' lib.recursiveUpdate {})
+        ];
+        config = lib.pipe m [
+          (builtins.map (m: m.config))
+          lib.mkMerge
+        ];
+      })
     ];
 }
