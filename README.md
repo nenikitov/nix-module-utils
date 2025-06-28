@@ -70,7 +70,7 @@ Simple Nix module generator
         ```nix
         {
           description = "my custom module";
-          cfg = _: {
+          cfg = {
             time.timeZone = "America/New_York";
           };
         }
