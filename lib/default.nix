@@ -14,7 +14,7 @@
     ];
   };
 
-  mkModule = namespace: config: {
+  mkModule = namespace: argsConfig: {
     description,
     path ? [],
     config ? {},
@@ -24,21 +24,21 @@
     namespaceModule = [namespace] ++ path;
     configs = {
       configGlobal = config;
-      configNamespace = lib.attrByPath [namespace] {} config;
-      configModule = lib.attrByPath namespaceModule {} config;
+      configNamespace = lib.attrByPath [namespace] {} argsConfig;
+      configModule = lib.attrByPath namespaceModule {} argsConfig;
     };
   in {
     options =
       lib.setAttrByPath
       namespaceModule
-      (config // {enable = lib.mkEnableOption description;});
+      (options // {enable = lib.mkEnableOption description;});
     config =
       lib.mkIf
       (enableCheck configs)
       (
-        if builtins.isFunction options
-        then options configs
-        else options
+        if builtins.isFunction config
+        then config configs
+        else config
       );
   };
 
