@@ -6,96 +6,102 @@ Simple Nix module generator
 
 1. Add as an input to your flake
 
-    ```nix
-    {
+  ```nix
+  {
     inputs = {
-        moduleUtils = {
-        url = "github:nenikitov/nix-module-utils"
-        inputs.nixpkgs.follows = "nixpkgs"
-        };
+      moduleUtils = {
+        url = "github:nenikitov/nix-module-utils";
+        inputs.nixpkgs.follows = "nixpkgs";
+      };
     };
     outputs = { /* ... */ };
-    }
-    ```
+  }
+  ```
 
-2. Use when outputting modules (works both with `nixosModules` and `homeManagerModules`)
+## Use cases
 
-    ```nix
-    {
-      inputs = { /* ... */ };
-      outputs = {...} @ inputs: {
-        nixosModules.myModule = inputs.moduleUtils.lib.scanModules {
-          namespace = "CUSTOM";
-          dir = ./modules;
-        };
-      };
-    }
-    ```
+- Modify module arguments (to inject custom library)
 
-3. Create directory structure (explanations assume the example configuration)
-
-    A module must be declared in a `default.nix` file whose path will be used as a namespace.
-    For example, a `core/programs/ly/default.nix` module options will be exposed in `CUSTOM.core.programs.ly`.
-
-    There must be no other `default.nix` files, and there is no need to list all modules in `imports = []`.
-
-    **Examples**
-    - Multiple nested modules
-        ```tree
-        modules/
-        |-- core/
-        |   `-- programs/
-        |       |-- ly/
-        |       |   `-- default.nix
-        |       `-- grub/
-        |           `-- default.nix
-        `-- optional/
-            `-- programs/
-                |-- neovim/
-                |   `-- default.nix
-                `-- fastfetch/
-                    `-- default.nix
-        ```
-
-4. Create module files
-
-    Module declaration can be a set or a function returning a set that contains at least a `description` and a `cfg` function.
-    Optionally, a declaration can add additional options through `opts`.
-
-    An `enable` option will be automatically generated with the `description`, and `cfg` function will run only if the `enable` option was activated.
-    There is no need to define it in `opts`, and there is no need to for `lib.mkIf` to check if the module is `enable`d.
-
-    **Examples**
-    - No additional options
-        ```nix
-        {
-          description = "my custom module";
-          cfg = {
-            time.timeZone = "America/New_York";
-          };
-        }
-        ```
-
-    - Additional options
-        ```nix
-        {lib, config, ...}: {
-          description = "my custom module";
-          opts = {
-            customOption = lib.mkOption {
-              description = "An additional option";
-              example = 0.2;
-              type = lib.types.numbers.between - 180 180;
+  ```nix
+  {
+    inputs = { /* ... */ };
+    outputs = {...} @ inputs: {
+      nixosModules.myModule =
+        inputs.moduleUtils.lib.overlayModule {
+          overlayArgs = args:
+            args
+            // {
+              someMagicConstant = 42;
+              veryComplicatedUtilityFunction = x: x + 10;
             };
-          };
-          cfg = {
-            configNamespace,
-            configLocal,
-          }: {
-            # Notice that at this point we have 3 `config` variables
-            # - `config` can be used to access any values from the global scope
-            # - `configNamespace` can be used to access values from all modules defined in the CUSTOM namespace
-            # - `configLocal` can be used to access values defined in `opts` of this module
-            location.longitude = configLocal.customOption;
-          };
         }
-        ```
+        ./modules;
+    };
+  }
+  ```
+
+- Minimize module boilerplate
+
+  ```nix
+  {
+    inputs = { /* ... */ };
+    outputs = {...} @ inputs: {
+      nixosModules.myModule =
+        inputs.moduleUtils.lib.overlayModule {
+          overlayArgs = args:
+            args
+            // {
+              mkModule = inputs.moduleUtils.lib.mkModule "CUSTOM_NAMESPACE" args.config;
+            };
+        }
+        ./modules;
+    };
+  }
+  ```
+  
+  Then, `mkModule` will be available in module arguments and can be used like this
+  
+  ```nix
+  {
+    lib,
+    mkModule,
+    ...
+  }:
+  mkModule {
+    # Description for `enable` option
+    description = "my custom module";
+    # Namespace from `overlayModule` + path will dictate the path to the module
+    # OPTIONAL: defaults to `[]`
+    path = ["settings" "mySetting"];
+    # Additional options that the module defines
+    # - Notice we don't need to have `enable` option - it is created automatically
+    # OPTIONAL: defaults to `{}`
+    options = {
+      customOption = lib.mkOption {
+        description = "An additional option";
+        example = 0.2;
+        type = lib.types.numbers.between (-180) 180;
+      };
+    };
+    # Configurations module makes when enabled
+    # - Notice we don't need to check for `enable` option - it is done automatically
+    # - Can be an attribute set instead of a function if there is no need to reference any defined options
+    # OPTIONAL: defaults to `{}`
+    config = {
+      # Any options defined globally, alias to `config` argument
+      configGlobal,
+      # Any options defined in the current namespace, alias to `config."${WHATEVER_NAMESPACE_IS}"`
+      configNamespace,
+      # Any options defined in the current module, alias to `config."${WHATEVER_NAMESPACE_IS}"."${WHATEVER}"."${PATH}"."${IS}"`
+      configModule,
+    }: {
+      location.longitude = configLocal.customOption;
+    };
+    # Function that overwrites whether the current module should be enabled
+    # - Does not change the enable value by default (it is always false)
+    # - Internally, it is the condition that is passed to `lib.mkIf` to set configurations made by the current module
+    # - This flake provides `outputs.lib.enableCheckCurrentModule` and `outputs.lib.enableCheckCurrentModuleAndNamespace` utility functions
+    # OPTIONAL: defaults to checking whether the current module is enabled (aka `outputs.lib.enableCheckCurrentModule`)
+    enableCheck = _: true;
+  }
+  ```
