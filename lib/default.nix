@@ -14,7 +14,7 @@
     ];
   };
 
-  mkModule = namespace: argsConfig: {
+  mkModule = namespace: configGlobal: {
     description,
     path ? [],
     config ? {},
@@ -23,9 +23,9 @@
   }: let
     namespaceModule = [namespace] ++ path;
     configs = {
-      configGlobal = config;
-      configNamespace = lib.attrByPath [namespace] {} argsConfig;
-      configModule = lib.attrByPath namespaceModule {} argsConfig;
+      inherit configGlobal;
+      configNamespace = lib.attrByPath [namespace] {} configGlobal;
+      configModule = lib.attrByPath namespaceModule {} configGlobal;
     };
   in {
     options =
