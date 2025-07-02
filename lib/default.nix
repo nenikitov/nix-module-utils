@@ -14,6 +14,11 @@
     ];
   };
 
+  optionallyConfigureModule = module: args:
+    if builtins.any (a: builtins.hasAttr a args) ["inputs" "lib" "config" "options" "pkgs"]
+    then module {} args
+    else module args;
+
   mkModule = namespace: configGlobal: {
     description,
     path ? [],
@@ -43,5 +48,5 @@
   };
 
   enableCheckCurrentModule = {configModule, ...}: configModule.enable;
-  enableCheckCurrentModuleAndNamespace = {configNamespace, ...}@args: configNamespace.enable && (enableCheckCurrentModule args);
+  enableCheckCurrentModuleAndNamespace = {configNamespace, ...} @ args: configNamespace.enable && (enableCheckCurrentModule args);
 }

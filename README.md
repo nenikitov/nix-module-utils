@@ -40,6 +40,23 @@ Simple Nix module generator
   }
   ```
 
+- Optionally add a configuration to module outputs
+
+  ```nix
+  {
+    inputs = { /* ... */ };
+    outputs = {...} @ inputs: {
+      nixosModules.myModule = inputs.moduleUtils.lib.optionallyConfigureModule ({someMagicConstant ? 42}:
+        _: { location.longitude = someMagicConstant; })
+    };
+  }
+  ```
+
+  Note:
+  - All arguments to the module (in the example `someMagicConstant`) must be optional with a default value
+  - Configuration arguments may not be any of `inputs`, `lib`, `config`, `options`, or `pkgs` because these names are used to check if configuration or real arguments are passed to the module
+  - A module returned after configuration must itself be a function, not a path or a set. You may need to manually `import` it
+
 - Minimize module boilerplate
 
   ```nix
