@@ -1,4 +1,4 @@
-{lib, ...}: rec {
+{lib, ...} @ argsFlake: rec {
   overlayModule = {
     overlayArgs ? lib.id,
     overlayResults ? lib.id,
@@ -19,34 +19,9 @@
     then module {} args
     else module args;
 
-  mkModule = namespace: configGlobal: {
-    description,
-    path ? [],
-    config ? {},
-    options ? {},
-    enableCheck ? enableCheckCurrentModule,
-  }: let
-    namespaceModule = [namespace] ++ path;
-    configs = {
-      inherit configGlobal;
-      configNamespace = lib.attrByPath [namespace] {} configGlobal;
-      configModule = lib.attrByPath namespaceModule {} configGlobal;
-    };
-  in {
-    options =
-      lib.setAttrByPath
-      namespaceModule
-      (options // {enable = lib.mkEnableOption description;});
-    config =
-      lib.mkIf
-      (enableCheck configs)
-      (
-        if builtins.isFunction config
-        then config configs
-        else config
-      );
-  };
+  libModule = import ./inner-lib.nix argsFlake;
 
   enableCheckCurrentModule = {configModule, ...}: configModule.enable;
+
   enableCheckCurrentModuleAndNamespace = {configNamespace, ...} @ args: configNamespace.enable && (enableCheckCurrentModule args);
 }

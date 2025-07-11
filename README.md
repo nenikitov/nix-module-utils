@@ -68,7 +68,19 @@ Simple Nix module generator
           overlayArgs = args:
             args
             // {
-              mkModule = inputs.moduleUtils.lib.mkModule "CUSTOM_NAMESPACE" args.config;
+              libModule = inputs.moduleUtils.lib.libModule {
+                # Namespace under which all options will reside
+                namespace = "CUSTOM_NAMESPACE";
+                # Boilerplate
+                inherit args;
+                # Function that overwrites whether the current module should be enabled
+                # - Takes in `{configGlobal, configNamespace, configModule, path}` (explained later), returns boolean
+                # - Does not change the enable value by default (it is always false)
+                # - Internally, it is the condition that is passed to `lib.mkIf` to set configurations made by the current module
+                # - This flake provides `inputs.moduleUtils.lib.enableCheckCurrentModule` and `inputs.moduleUtils.lib.enableCheckCurrentModuleAndNamespace` utility functions
+                # OPTIONAL: defaults to checking whether the current module is enabled (aka `inputs.moduleUtils.lib.enableCheckCurrentModule`)
+                enableCheck = _: true;
+              };
             };
         }
         ./modules;
@@ -76,15 +88,15 @@ Simple Nix module generator
   }
   ```
   
-  Then, `mkModule` will be available in module arguments and can be used like this
+  Then, `mkEnableModule` will be available in module arguments and can be used like this
   
   ```nix
   {
     lib,
-    mkModule,
+    libModule,
     ...
   }:
-  mkModule {
+  libModule.mkEnableModule {
     # Description for `enable` option
     description = "my custom module";
     # Namespace from `overlayModule` + path will dictate the path to the module
@@ -111,14 +123,12 @@ Simple Nix module generator
       configNamespace,
       # Any options defined in the current module, alias to `config."${WHATEVER_NAMESPACE_IS}"."${WHATEVER}"."${PATH}"."${IS}"`
       configModule,
+      # Path passed to this module
+      path,
     }: {
       location.longitude = configLocal.customOption;
     };
-    # Function that overwrites whether the current module should be enabled
-    # - Does not change the enable value by default (it is always false)
-    # - Internally, it is the condition that is passed to `lib.mkIf` to set configurations made by the current module
-    # - This flake provides `outputs.lib.enableCheckCurrentModule` and `outputs.lib.enableCheckCurrentModuleAndNamespace` utility functions
-    # OPTIONAL: defaults to checking whether the current module is enabled (aka `outputs.lib.enableCheckCurrentModule`)
-    enableCheck = _: true;
   }
   ```
+
+  There is a simpler `libModule.mkModule` function to generate a module without an `enable` option (it will always be enabled) that has the same signature minus the `description` argumnent.
