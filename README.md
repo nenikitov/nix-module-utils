@@ -72,7 +72,7 @@ Simple Nix module generator
                 # Namespace under which all options will reside
                 namespace = "CUSTOM_NAMESPACE";
                 # Boilerplate
-                outerArgs = args;
+                inherit args;
                 # Function that overwrites whether the current module should be enabled
                 # - Takes in `{configGlobal, configNamespace, configModule, path}` (explained later), returns boolean
                 # - Does not change the enable value by default (it is always false)

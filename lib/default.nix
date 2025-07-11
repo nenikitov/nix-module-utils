@@ -19,7 +19,7 @@
     then module {} args
     else module args;
 
-  libModule = import ./inner-lib argsFlake;
+  libModule = import ./inner-lib.nix argsFlake;
 
   enableCheckCurrentModule = {configModule, ...}: configModule.enable;
 

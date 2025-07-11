@@ -4,12 +4,12 @@
   ...
 }: {
   namespace,
-  outerArgs,
+  args,
   enableOverride ? libCustom.enableCheckCurrentModule,
 }:
 # Utilities
 let
-  configGlobal = outerArgs.config;
+  configGlobal = args.config;
 
   applyIfFunction = obj: args:
     if builtins.isFunction obj
@@ -23,7 +23,7 @@ in rec
     config ? {},
     options ? {},
   }: let
-    pathNamespace = [namesapce];
+    pathNamespace = [namespace];
     pathModule = pathNamespace ++ path;
     configs = {
       inherit configGlobal path;
@@ -48,6 +48,7 @@ in rec
     options ? {},
   }:
     mkModule {
+      inherit path;
       options =
         options // {enable = lib.mkEnableOption description;};
       config = configs:
