@@ -88,7 +88,7 @@ Simple Nix module generator
   }
   ```
   
-  Then, `mkModule` will be available in module arguments and can be used like this
+  Then, `mkEnableModule` will be available in module arguments and can be used like this
   
   ```nix
   {
