@@ -15,31 +15,45 @@ let
     if builtins.isFunction obj
     then obj args
     else obj;
+
+  mkConfigs = path: rec {
+    inherit configGlobal path;
+    configNamespace = configGlobal."${namespace}";
+    configModule = lib.attrByPath path {} configNamespace;
+  };
 in rec
 # Lib
 {
+  # Create a module without `enable` option
   mkModule = {
     path ? [],
-    config ? {},
     options ? {},
-  }: let
-    pathNamespace = [namespace];
-    pathModule = pathNamespace ++ path;
-    configs = {
-      inherit configGlobal path;
-      configNamespace = lib.attrByPath pathNamespace {} configGlobal;
-      configModule = lib.attrByPath pathModule {} configGlobal;
-    };
-  in {
-    options =
+    config ? {},
+  }: {
+    options."${namespace}" =
       lib.setAttrByPath
-      pathModule
+      path
       options;
     config =
       applyIfFunction
       config
-      configs;
+      (mkConfigs path);
   };
+
+  # Create a module that depends on other module `enable` option
+  mkEnableSubmodule = {
+    path ? [],
+    pathParent ? [],
+    options ? {},
+    config ? {},
+  }:
+    mkModule {
+      inherit path options;
+      config = configs:
+        lib.mkIf
+        (enableOverride (mkConfigs pathParent))
+        (applyIfFunction config configs);
+    };
 
   mkEnableModule = {
     description,
@@ -47,11 +61,9 @@ in rec
     config ? {},
     options ? {},
   }:
-    mkModule {
-      inherit path;
-      options =
-        options // {enable = lib.mkEnableOption description;};
-      config = configs:
-        lib.mkIf (enableOverride configs) (applyIfFunction config configs);
+    mkEnableSubmodule {
+      inherit path config;
+      pathParent = path;
+      options = options // {enable = lib.mkEnableOption description;};
     };
 }
