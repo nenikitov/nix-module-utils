@@ -24,6 +24,15 @@ let
 in rec
 # Lib
 {
+  scanDir = { dir, exclude ? [] }: let
+    excludeList = if builtins.isList exclude then exclude else [exclude];
+  in lib.pipe dir [
+    builtins.readDir
+    builtins.attrNames
+    (builtins.map (lib.path.append dir))
+    (builtins.filter (p: !builtins.elem p excludeList))
+  ];
+
   # Create a module without `enable` option
   mkModule = {
     path ? [],
@@ -46,24 +55,35 @@ in rec
     pathParent ? [],
     options ? {},
     config ? {},
-  }:
+  }: let
+      configsParent = mkConfigs pathParent;
+    in
     mkModule {
       inherit path options;
       config = configs:
         lib.mkIf
-        (enableOverride (mkConfigs pathParent))
-        (applyIfFunction config configs);
+        (enableOverride configsParent)
+        (applyIfFunction config ({
+          inherit pathParent;
+          configModuleParent = configsParent.configModule;
+        } // configs));
     };
 
   mkEnableModule = {
-    description,
+    description ? [],
+    defaultEnable ? false,
     path ? [],
-    config ? {},
     options ? {},
+    config ? {},
   }:
-    mkEnableSubmodule {
-      inherit path config;
-      pathParent = path;
-      options = options // {enable = lib.mkEnableOption description;};
+    mkModule {
+      inherit path;
+      options = options // {
+        enable = (lib.mkEnableOption description) // { default = defaultEnable; };
+      };
+      config = configs:
+        lib.mkIf
+        (enableOverride (mkConfigs path))
+        (applyIfFunction config configs);
     };
 }
