@@ -3,16 +3,17 @@
     overlayArgs ? lib.id,
     overlayResults ? lib.id,
   }: module: args: {
-    imports = lib.pipe module [
-      (m: lib.modules.collectModules "" [module] (overlayArgs args))
-      (map (m:
-        lib.pipe m [
-          (lib.filterAttrs (k: v: lib.elem k ["options" "config"]))
-          overlayResults
-          (lib.modules.setDefaultModuleLocation m._file)
-        ]))
-    ];
-  };
+      imports = lib.pipe module [
+        (m: lib.modules.collectModules "" [module] (overlayArgs args))
+        (m: m.modules)
+        (map (m:
+          lib.pipe m [
+            (lib.filterAttrs (k: v: lib.elem k ["options" "config"]))
+            overlayResults
+            (lib.modules.setDefaultModuleLocation m._file)
+          ]))
+      ];
+    };
 
   optionallyConfigureModule = module: args:
     if builtins.any (a: builtins.hasAttr a args) ["inputs" "lib" "config" "options" "pkgs"]
