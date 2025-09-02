@@ -17,7 +17,7 @@ let
     else obj;
 
   mkConfigs = path: rec {
-    inherit configGlobal path;
+    inherit configGlobal path namespace;
     configNamespace = configGlobal."${namespace}";
     configModule = lib.attrByPath path {} configNamespace;
   };
